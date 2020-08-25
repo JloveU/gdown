@@ -82,6 +82,8 @@ def main():
         action="store_true",
         help="don't use cookies in ~/.cache/gdown/cookies.json",
     )
+    parser.add_argument("--byte-range", default=None, help="byte range")
+    parser.add_argument("--split-size", type=int, default=None, help="split size")
 
     args = parser.parse_args()
 
@@ -103,6 +105,8 @@ def main():
         proxy=args.proxy,
         speed=args.speed,
         use_cookies=not args.no_cookies,
+        byte_range=args.byte_range,
+        split_size=args.split_size,
     )
 
 

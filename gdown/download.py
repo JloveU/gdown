@@ -60,7 +60,7 @@ def get_url_from_gdrive_confirmation(contents):
 
 
 def download(
-    url, output=None, quiet=False, proxy=None, speed=None, use_cookies=True
+    url, output=None, quiet=False, proxy=None, speed=None, use_cookies=True, byte_range=None, split_size=None
 ):
     """Download file from URL.
 
@@ -105,9 +105,11 @@ def download(
     file_id, is_download_link = parse_url(url)
 
     while True:
-
         try:
-            res = sess.get(url, stream=True)
+            headers = {}
+            if byte_range:
+                headers["Range"] = "bytes=" + byte_range
+            res = sess.get(url, stream=True, headers=headers)
         except requests.exceptions.ProxyError as e:
             print("An error has occurred using proxy:", proxy, file=sys.stderr)
             print(e, file=sys.stderr)
@@ -184,6 +186,8 @@ def download(
         )
         f = open(tmp_file, "wb")
     else:
+        if split_size:
+            raise ValueError("Split mode is not supported when the specified output is not a path.")
         tmp_file = None
         f = output
 
@@ -193,6 +197,9 @@ def download(
             total = int(total)
         if not quiet:
             pbar = tqdm.tqdm(total=total, unit="B", unit_scale=True)
+        if split_size:
+            split_index = 0
+            split_saved_size = 0
         t_start = time.time()
         for chunk in res.iter_content(chunk_size=CHUNK_SIZE):
             f.write(chunk)
@@ -203,11 +210,28 @@ def download(
                 elapsed_time = time.time() - t_start
                 if elapsed_time < elapsed_time_expected:
                     time.sleep(elapsed_time_expected - elapsed_time)
+            if split_size:
+                split_saved_size += len(chunk)
+                if split_saved_size >= split_size:
+                    f.close()
+                    shutil.move(tmp_file, output + f".{split_index + 1:03d}")
+                    print(f"Saved No.{split_index + 1} split.", file=sys.stderr)
+                    f = open(tmp_file, "wb")
+                    split_saved_size = 0
+                    split_index += 1
+        if split_size:
+            f.close()
+            if split_saved_size > 0:
+                shutil.move(tmp_file, output + f".{split_index + 1:03d}")
+                print(f"Saved No.{split_index + 1} split.", file=sys.stderr)
+            else:
+                os.remove(tmp_file)
+        else:
+            if tmp_file:
+                f.close()
+                shutil.move(tmp_file, output)
         if not quiet:
             pbar.close()
-        if tmp_file:
-            f.close()
-            shutil.move(tmp_file, output)
     except IOError as e:
         print(e, file=sys.stderr)
         return

@@ -56,6 +56,8 @@ def cached_download(
     postprocess=None,
     proxy=None,
     speed=None,
+    byte_range=None,
+    split_size=None,
 ):
     """Cached downlaod from URL.
 
@@ -120,7 +122,7 @@ def cached_download(
                 msg = "{}...".format(msg)
             print(msg, file=sys.stderr)
 
-        download(url, temp_path, quiet=quiet, proxy=proxy, speed=speed)
+        download(url, temp_path, quiet=quiet, proxy=proxy, speed=speed, byte_range=byte_range, split_size=split_size)
         with filelock.FileLock(lock_path):
             shutil.move(temp_path, path)
     except Exception:
